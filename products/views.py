@@ -1,16 +1,17 @@
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, IsAuthenticatedOrReadOnly
 from rest_framework_simplejwt.views import TokenObtainPairView
 from .models import Product
 from .serializers import ProductSerializer
 
 
 class ProductView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticatedOrReadOnly]
 
     def post(self, request):
+        request.data['author'] = request.user.id
         serializer = ProductSerializer(data=request.data)
         if serializer.is_valid():
             serializer.save()
