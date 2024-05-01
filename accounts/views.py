@@ -2,12 +2,13 @@ from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.views import TokenObtainPairView
+from rest_framework.generics import RetrieveAPIView
 from .models import User
 from .serializers import UserSerializer
-from rest_framework.generics import RetrieveAPIView
+from django.contrib.auth.hashers import make_password, check_password
 
 
-class SignupView(APIView):
+class Signup(APIView):
     def post(self, request):
         serializer = UserSerializer(data=request.data)
         if serializer.is_valid():
@@ -16,7 +17,7 @@ class SignupView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-class LoginView(TokenObtainPairView):
+class Login(TokenObtainPairView):
     def post(self, request):
         serializer = self.get_serializer(data=request.data)
         if serializer.is_valid():
@@ -24,7 +25,7 @@ class LoginView(TokenObtainPairView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-class ProfileView(RetrieveAPIView):
+class Profile(RetrieveAPIView):
     serializer_class = UserSerializer
 
     def get_object(self):
@@ -37,13 +38,13 @@ class ProfileView(RetrieveAPIView):
         return super().get(request, *args, **kwargs)
 
 
-class LogoutView(APIView):
+class Logout(APIView):
     def post(self, request):
         request.user.auth_token.delete()
         return Response(status=status.HTTP_200_OK)
 
 
-class UpdateProfileView(APIView):
+class Update(APIView):
     def put(self, request):
         serializer = UserSerializer(
             request.user, data=request.data, partial=True)
@@ -53,7 +54,7 @@ class UpdateProfileView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-class ChangePasswordView(APIView):
+class ChangePassword(APIView):
     def put(self, request):
         old_password = request.data.get('old_password')
         new_password = request.data.get('new_password')
@@ -61,13 +62,17 @@ class ChangePasswordView(APIView):
             return Response({'error': '잘못된 이전 비밀번호입니다.'}, status=status.HTTP_400_BAD_REQUEST)
         if old_password == new_password:
             return Response({'error': '새로운 비밀번호는 이전 비밀번호와 같을 수 없습니다.'}, status=status.HTTP_400_BAD_REQUEST)
-        request.user.set_password(new_password)
+        request.user.set_password(make_password(new_password))
         request.user.save()
-
         return Response({'message': '비밀번호 변경 완료.'}, status=status.HTTP_200_OK)
 
 
-class DeleteAccountView(APIView):
+class Delete(APIView):
     def delete(self, request):
+        password = request.data.get('password')
+        if not password:
+            return Response({'error': '비밀번호를 입력하세요'}, status=status.HTTP_400_BAD_REQUEST)
+        if not check_password(password, request.user.password):
+            return Response({'error': '비밀번호가 틀렸습니다'}, status=status.HTTP_400_BAD_REQUEST)
         request.user.delete()
-        return Response(status=status.HTTP_204_NO_CONTENT)
+        return Response({'message': '계정이 삭제되었습니다'}, status=status.HTTP_204_NO_CONTENT)
