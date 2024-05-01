@@ -31,7 +31,8 @@ class UpdateProductView(APIView):
         product = Product.objects.get(id=pk)
         if request.user != product.author:
             return Response({"message": "제품을 수정할 권한이 없습니다."}, status=status.HTTP_403_FORBIDDEN)
-        serializer = ProductSerializer(product, data=request.data)
+        serializer = ProductSerializer(
+            product, data=request.data, partial=True)
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data, status=status.HTTP_200_OK)

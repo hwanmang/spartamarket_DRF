@@ -4,6 +4,7 @@ from rest_framework.views import APIView
 from rest_framework_simplejwt.views import TokenObtainPairView
 from .models import User
 from .serializers import UserSerializer
+from rest_framework.generics import RetrieveAPIView
 
 
 class SignupView(APIView):
@@ -23,11 +24,17 @@ class LoginView(TokenObtainPairView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-class ProfileView(APIView):
-    def get(self, request):
-        user = request.user
-        serializer = UserSerializer(user)
-        return Response(serializer.data)
+class ProfileView(RetrieveAPIView):
+    serializer_class = UserSerializer
+
+    def get_object(self):
+        username = self.kwargs['username']
+        return User.objects.get(username=username)
+
+    def get(self, request, *args, **kwargs):
+        if request.user.username != kwargs['username']:
+            return Response({'error': '권한이 없습니다.'}, status=status.HTTP_403_FORBIDDEN)
+        return super().get(request, *args, **kwargs)
 
 
 class LogoutView(APIView):
@@ -50,12 +57,13 @@ class ChangePasswordView(APIView):
     def put(self, request):
         old_password = request.data.get('old_password')
         new_password = request.data.get('new_password')
-        if old_password != request.user.password:
+        if not request.user.check_password(old_password):
             return Response({'error': '잘못된 이전 비밀번호입니다.'}, status=status.HTTP_400_BAD_REQUEST)
-        if new_password == old_password:
+        if old_password == new_password:
             return Response({'error': '새로운 비밀번호는 이전 비밀번호와 같을 수 없습니다.'}, status=status.HTTP_400_BAD_REQUEST)
         request.user.set_password(new_password)
         request.user.save()
+
         return Response({'message': '비밀번호 변경 완료.'}, status=status.HTTP_200_OK)
 
 
